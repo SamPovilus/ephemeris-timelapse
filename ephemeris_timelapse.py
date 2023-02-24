@@ -7,7 +7,7 @@ import shutil
 import pause
 import time
 o = ephem.Observer()
-o.lat, o.long = '39.98', '0.0'
+o.lat, o.long = '0.0', '-105.23'
 sun = ephem.Sun()
 
 root_path = "/timelapse/FVSYkiwp2G"
@@ -44,7 +44,7 @@ while True:
                         print("copying: " + pic_path + "to: " + noon_cam_path + pic_filename)
                     #else: 
                         #print("not copying " + noon_cam_path + pic_filename)
-    pause_until = datetime.now() + timedelta(minutes=4)
+    pause_until = datetime.now() + timedelta(hours=23)
     print(pause_until)
     pause.until(pause_until)
     
