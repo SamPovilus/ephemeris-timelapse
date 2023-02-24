@@ -19,6 +19,8 @@ sun = ephem.Sun()
 
 allowed_timediff_sec = float(os.environ.get("ALLOWED_TIMEDIFF_SEC"))
 
+offset_from_solar_noon_hours = float(os.environ.get("OFFSET_FROM_SOLAR_NOON_HOURS"))
+
 input_root_path = os.environ.get("INPUT_ROOT")
 capture_dirs = os.listdir(input_root_path)
 timelapse_dirs = [timelapse_dirs for timelapse_dirs in capture_dirs if "_timelapse" in timelapse_dirs]
@@ -29,7 +31,7 @@ if not isinstance(numeric_level, int):
     raise ValueError('Invalid log level: %s' % loglevel)
 logging.basicConfig(level=numeric_level)
 
-logging.info("Longitue is: " + str(float(o.long)) +" Latitide: " + str(float(o.lat)) + " root path is: " + input_root_path + " logging level is " + str(numeric_level) + " allowed timediff is: " + str(allowed_timediff_sec))
+logging.info("Longitue is: " + str(float(o.long)) +" Latitide: " + str(float(o.lat)) + " root path is: " + input_root_path + " logging level is " + str(numeric_level) + " allowed timediff is: " + str(allowed_timediff_sec) + " Offset from solar noon in hours: " + str(offset_from_solar_noon_hours))
 logging.debug("datetime.now: " + str(datetime.now()) + " ephem.localtime(o.next_transit(sun)): " + str(ephem.localtime(o.next_transit(sun))) + " os.system(\"date\"): " + str(osdate) )
 
 def closest(lst, K):
@@ -37,21 +39,21 @@ def closest(lst, K):
 
 while True:
     for camera in timelapse_dirs:
-        #TODO: allow for offsetting from solar noon
-        noon_cam_path = str(output_root_path) + str(camera) + "_noon/"
+        noon_cam_path = str(output_root_path) + str(camera) + "_" + str(offset_from_solar_noon_hours) +"/"
         isExist = os.path.exists(noon_cam_path)
         if not isExist:
             # Create a new directory because it does not exist
             os.makedirs(noon_cam_path)
         days = (os.listdir(input_root_path + "/" + camera))
         for day in days:
-            logging.debug("local time of solar noon on " + str(day) + " is " + str(ephem.localtime(o.next_transit(sun,start=day))))
+            time_to_capture = ephem.localtime(o.next_transit(sun,start=day))+timedelta(hours=offset_from_solar_noon_hours)
+            logging.debug("local time of solar noon on " + str(day) + " is " + str(time_to_capture))
             pictures = (os.listdir(input_root_path + "/" + camera + "/" + day))
             if(len(pictures)>10):
-                closest_pic = closest([ datetime.strptime(picture_date,"%Y-%m-%dT%H-%M-%S.jpg") for picture_date in pictures],ephem.localtime(o.next_transit(sun,start=day)))
+                closest_pic = closest([ datetime.strptime(picture_date,"%Y-%m-%dT%H-%M-%S.jpg") for picture_date in pictures],(time_to_capture))
                 regex = r"(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2}):(\d{2})"
                 subst = "\\1T\\2-\\3-\\4.jpg"
-                time_diff = (closest_pic - ephem.localtime(o.next_transit(sun,start=day))).total_seconds()
+                time_diff = (closest_pic - time_to_capture).total_seconds()
                 
                 pic_filename = (re.sub(regex,subst,str(closest_pic)))
                 pic_path = str(input_root_path + "/" + camera + "/" + day + "/" +pic_filename)
@@ -64,7 +66,7 @@ while True:
                         logging.debug("Picture already exsists, not copying " + noon_cam_path + pic_filename)
                 else:
                     logging.debug("No picture less than " + str(allowed_timediff_sec) + " seconds from solar noon, not copying, closest picture is: " + str(closest_pic))
-    #TODO: pause until midnight localtime
-    pause_until = datetime.now() + timedelta(hours=23)
+    #Sleep till the next midnight + 5 minutes
+    pause_until = (datetime.now() + timedelta(hours=25)).replace(minute=5, hour=0, second=0, microsecond=0)
     logging.info("Sleeping until: " + str(pause_until))
     pause.until(pause_until)
